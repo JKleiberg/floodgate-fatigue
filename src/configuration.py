@@ -10,16 +10,15 @@ g     = 9.81   # (m/s2)  Gravity constant
 F     = 30000  # (m)     Fetch of wind
 rho   = 1025   # (kg/m3) Density of water
 h0    = 5      # (m)     Depth below mean sea level at start of lifetime
-h50   = 0.4    # (m)     Projected sea level rise in 50 years
-h100  = 1      # (m)     Projected sea level rise in 100 years
 H_LAKE= 4      # (m)     Depth on lake side (assumed constant)
 cp    = 1500   # (m/s)   Speed of sound in water
 
 ## Structural properties
-H_GATE = 7.5      # (m)     Gate height (also z-coord of overhang)
-WIDTH  = 10       # (m)     Gate width
-Ly     = 1        # (m)     Overhang length
+# H_GATE = 7.5      # (m)     Gate height (also z-coord of overhang)
+# WIDTH  = 10       # (m)     Gate width
+# Ly     = 1        # (m)     Overhang length
 cr     = 0.8      # (-)     Reflection coefficient
+rho_s  = 7850     # (kg/m3) Steel density
 
 ## Fatigue
 gamma_Mf = 1.2
@@ -45,11 +44,12 @@ dx = 0.05        # (m)   Horizontal gate coordinate step size
 dt = 0.0025      # (s)   Timestep for pressure time series
 N_HOURS = 1      # (h)   Duration of a single load situation
 hlife = 80       # (y)   Desired lifetime of structure
+t = np.arange(0,N_HOURS*3600+1*dt,dt)
 
 ## Coordinates
-x_coords = np.linspace(0, WIDTH, int(WIDTH/dx+1))
-z_coords = np.linspace(0, H_GATE, int(H_GATE/dz+1))
-t = np.arange(0,N_HOURS*3600+1*dt,dt)
+# x_coords = np.linspace(0, WIDTH, int(WIDTH/dx+1))
+# z_coords = np.linspace(0, H_GATE, int(H_GATE/dz+1))
+# t = np.arange(0,N_HOURS*3600+1*dt,dt)
 
 ## Gate properties
 Gate = None

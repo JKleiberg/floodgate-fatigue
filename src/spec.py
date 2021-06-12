@@ -6,7 +6,7 @@ import random
 import numpy as np
 from scipy.optimize import root
 import matplotlib.pyplot as plt
-from src.configuration import g, N_HOURS,F, C_ts
+from src.configuration import g, N_HOURS, F, C_ts
 
 def jonswap(u_wind, depth, timestep):
     """Generates a JONSWAP spectrum based on the wind velocity,

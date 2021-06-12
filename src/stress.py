@@ -4,21 +4,20 @@ based on previously calculated quasi-static stress spectra and wave impact time 
 """
 import os
 import sys
+import dill
 import numpy as np
 import matplotlib.pyplot as plt
 import pyfftw
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
-from src.configuration import N_HOURS, WIDTH, dz, H_GATE, z_coords, t, Gate
+from src.configuration import N_HOURS, dz, t, n_z
 from src.woodandperegrine import woodandperegrine
 pyfftw.config.NUM_THREADS = 4
 root_dir = os.path.join(os.getcwd(), '..')
 sys.path.append(root_dir)
-
-# Prepare Wood & Peregrine dimensionless impact shape
-Pz_impact_U1 = woodandperegrine()
-
-# Load FRF corresponding to loaded system properties
-directory = '../data/06_transferfunctions/'+str(Gate.case)+'/FRF_'+str(Gate.n_modes)+'modes'+str(Gate.case)+'.npy'
+# Load system properties
+with open('../data/06_transferfunctions/current_case.pkl', 'rb') as file:
+    GATE = dill.load(file)
+directory = '../data/06_transferfunctions/'+str(GATE.case)+'/FRF_'+str(GATE.case)+'_'+str(GATE.n_modes)+'modes.npy'
 try:
     frf_intpl = np.load(directory, mmap_mode='r')
     # Map mode only loads parts of 3Gb matrix when needed instead of keeping it all in RAM.
@@ -58,19 +57,20 @@ def qs_discretize(pqs_f):
     """Integrates the quasi-static pressure spectrum over the gate sections."""
     # does not integrate over x!
     # Becomes problem if segments are variable or inputs not uniform in x-direction
-    return np.array([np.sum(np.split(pqs_f,Gate.ii_z[1:-1], axis=0)[i],axis=0)*dz/\
-                     (z_coords[Gate.ii_z[i+1]]-z_coords[Gate.ii_z[i]])\
-                     for i in range(Gate.n_z)])
+    return np.array([np.sum(np.split(pqs_f, GATE.ii_z[1:-1], axis=0)[i], axis=0)*dz/\
+                     (GATE.z_coords[GATE.ii_z[i+1]]-GATE.z_coords[GATE.ii_z[i]])\
+                     for i in range(n_z)])
 
 def imp_discretize(impact_force_t):
     """Integrates the impulsive pressure time series over the gate sections."""
+    Pz_impact_U1 = woodandperegrine(GATE)
     # Construct force-time matrix for all z-coordinates
     p_matrix = np.zeros((len(impact_force_t), len(Pz_impact_U1)))
     np.multiply.outer(impact_force_t, Pz_impact_U1, out = p_matrix)
     # does not integrate over x!
     # Becomes problem if segments are variable or inputs not uniform in x-direction
-    return np.array([np.sum(np.split(p_matrix,Gate.ii_z[1:-1], axis=1)[i],axis=1)*dz/\
-                     (z_coords[Gate.ii_z[i+1]]-z_coords[Gate.ii_z[i]]) for i in range(Gate.n_z)])
+    return np.array([np.sum(np.split(p_matrix, GATE.ii_z[1:-1], axis=1)[i], axis=1)*dz/\
+                     (GATE.z_coords[GATE.ii_z[i+1]]-GATE.z_coords[GATE.ii_z[i]]) for i in range(n_z)])
 
 def stress_time(freqs, pqs_f, impact_force_t, coords, stresstype = None, 
                 plot=False, plotrange = [50,80]):
@@ -92,20 +92,20 @@ def stress_time(freqs, pqs_f, impact_force_t, coords, stresstype = None,
 
     # IRFFT of quasi-static part
     pqs_sections = qs_discretize(pqs_f)
-    q_tot = pqs_sections.sum(axis=(0))*(H_GATE/Gate.n_z)
+    q_tot = pqs_sections.sum(axis=(0))*(GATE.HEIGHT/n_z)
     # N/m (only works if sections are of constant size)
     # Interpolate FRF to correct resolution
-    func = interp1d(Gate.FRF_f, Gate.FRF, axis=3)
+    func = interp1d(GATE.f_tf, GATE.FRF, axis=3)
     frf_qs = func(freqs)
     if stresstype == 'pos':
-        mode_shape = Gate.stresspos3D.loc[coords].to_list()
+        mode_shape = GATE.stresspos3D.loc[coords].to_list()
     elif stresstype == 'neg':
-        mode_shape = Gate.stressneg3D.loc[coords].to_list()
+        mode_shape = GATE.stressneg3D.loc[coords].to_list()
     else:
-        if sum(Gate.stressneg3D.loc[coords] - Gate.stresspos3D.loc[coords])>0:
-            mode_shape = Gate.stressneg3D.loc[coords].to_list()
+        if sum(GATE.stressneg3D.loc[coords] - GATE.stresspos3D.loc[coords])>0:
+            mode_shape = GATE.stressneg3D.loc[coords].to_list()
         else:
-            mode_shape = Gate.stresspos3D.loc[coords].to_list()
+            mode_shape = GATE.stresspos3D.loc[coords].to_list()
     response_qs = np.zeros(len(freqs), dtype=np.complex)
     np.einsum('jl,ijkl,k->l',pqs_sections, frf_qs, mode_shape,
               out=response_qs, dtype=np.complex)
@@ -123,11 +123,11 @@ def stress_time(freqs, pqs_f, impact_force_t, coords, stresstype = None,
     p_sections = imp_discretize(impact_force_t)
     p_imp_f = pyfftw.interfaces.numpy_fft.rfft(p_sections, axis=1)
     # Find total force
-    F_gate = p_sections.sum(axis=(0))*(H_GATE/Gate.n_z)
+    F_gate = p_sections.sum(axis=(0))*(GATE.HEIGHT/n_z)
     # N/m over width (only works if sections are of constant size)
 
     # Compute response for modes
-    response_imp = np.zeros(len(Gate.f_trunc), dtype=np.complex)
+    response_imp = np.zeros(len(GATE.f_intpl), dtype=np.complex)
     np.einsum('jl,ijkl,k->l', p_imp_f, frf_intpl, mode_shape,
               out=response_imp, dtype=np.complex)
     response_imp_t = pyfftw.interfaces.numpy_fft.irfft(response_imp)
@@ -145,25 +145,25 @@ def stress_per_mode(freqs, pqs_f, impact_force_t, coords, stresstype = None):
     pqs_sections = qs_discretize(pqs_f)
     # N/m (only works if sections are of constant size)
     # Interpolate FRF to correct resolution
-    func = interp1d(Gate.FRF_f, Gate.FRF, axis=3)
+    func = interp1d(GATE.f_tf, GATE.FRF, axis=3)
     frf_qs = func(freqs)
     if   stresstype == 'pos':
-        mode_shape = Gate.stresspos3D.loc[coords].to_list()
+        mode_shape = GATE.stresspos3D.loc[coords].to_list()
     elif stresstype == 'neg':
-        mode_shape = Gate.stressneg3D.loc[coords].to_list()
+        mode_shape = GATE.stressneg3D.loc[coords].to_list()
     else:
-        if sum(Gate.stressneg3D.loc[coords] - Gate.stresspos3D.loc[coords])>0:
-            mode_shape = Gate.stressneg3D.loc[coords].to_list()
+        if sum(GATE.stressneg3D.loc[coords] - GATE.stresspos3D.loc[coords])>0:
+            mode_shape = GATE.stressneg3D.loc[coords].to_list()
         else:
-            mode_shape = Gate.stresspos3D.loc[coords].to_list()
-    response_qs = np.zeros([Gate.n_modes,len(freqs)], dtype=np.complex)
+            mode_shape = GATE.stresspos3D.loc[coords].to_list()
+    response_qs = np.zeros([GATE.n_modes, len(freqs)], dtype=np.complex)
     np.einsum('jl,ijkl,k->kl', pqs_sections, frf_qs, mode_shape,
               out = response_qs, dtype=np.complex)
     response_qs_t = len(response_qs)*pyfftw.interfaces.numpy_fft.irfft(response_qs)
     t_qs = np.linspace(0, 3600*N_HOURS, 2*(len(pqs_f[0])-1))
     # Interpolate qs
 
-    resp_qs_intpl = np.zeros([Gate.n_modes, len(t)])
+    resp_qs_intpl = np.zeros([GATE.n_modes, len(t)])
     for i, resmode in enumerate(response_qs_t):
         func_qs = InterpolatedUnivariateSpline(t_qs, resmode)
         resp_qs_intpl[i] = func_qs(t)
@@ -174,7 +174,7 @@ def stress_per_mode(freqs, pqs_f, impact_force_t, coords, stresstype = None):
     # N/m over width (only works if sections are of constant size)
 
     # Compute response for modes
-    response_imp = np.zeros([Gate.n_modes, len(Gate.f_trunc)], dtype=np.complex)
+    response_imp = np.zeros([GATE.n_modes, len(GATE.f_intpl)], dtype=np.complex)
     np.einsum('jl,ijkl,k->kl', p_imp_f, frf_intpl, mode_shape,
               out = response_imp, dtype=np.complex)
 

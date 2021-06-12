@@ -14,7 +14,7 @@ import multiprocess
 pyfftw.config.NUM_THREADS = 4
 root_dir = os.path.join(os.getcwd(), '..')
 sys.path.append(root_dir)
-from src.configuration import N_HOURS, WIDTH, H_GATE, t, Gate
+from src.configuration import N_HOURS, t #WIDTH, H_GATE, t, Gate
 from src.woodandperegrine import woodandperegrine
 from src.stress import qs_discretize, imp_discretize, stress_per_mode
 from src.utilities.nearest import nearest
@@ -23,14 +23,14 @@ from src.pressure import pressure
 TUblue = "#00A6D6"
 
 # Load FRF corresponding to loaded system properties
-directory = '../data/06_transferfunctions/'+str(Gate.case)+'/FRF_'+str(Gate.n_modes)+'modes'+str(Gate.case)+'.npy'
+directory = '../data/06_transferfunctions/'+str(GATE.case)+'/FRF_'+str(GATE.case)+'_'+str(GATE.n_modes)+'modes.npy'
 try:
     frf_intpl = np.load(directory, mmap_mode='r')
     # Map mode only loads parts of 3Gb matrix when needed instead of keeping it all in RAM.
 except OSError:
     print("An exception occurred: no FRF found at "+directory)
 
-def fatigue_gate(u_wind, h_sea, cat, ID=''):
+def fatigue_gate(GATE, u_wind, h_sea, cat, ID=''):
     """Calculates the fatigue and contribution of each mode at every point in the gate
 
     Parameters:
@@ -52,7 +52,7 @@ def fatigue_gate(u_wind, h_sea, cat, ID=''):
     freqs, pqs_f, impact_force_t, Hs, Tp = pressure(u_wind, h_sea)
     length_scale = len(pqs_f[0])
     pqs_sections = qs_discretize(pqs_f)
-    func = interp1d(Gate.FRF_f,Gate.FRF, axis=3)
+    func = interp1d(GATE.f_tf,GATE.FRF, axis=3)
     FRF_qs = func(freqs)
     p_imp_f = pyfftw.interfaces.numpy_fft.rfft(imp_discretize(impact_force_t),axis=1)
 
@@ -62,10 +62,10 @@ def fatigue_gate(u_wind, h_sea, cat, ID=''):
     #Tradeoff between memory and processing time
     chunksize = 15
     cores = 4
-    col_chunks = list(divide_chunks(Gate.stressneglist.tolist(), chunksize))
+    col_chunks = list(divide_chunks(GATE.stressneglist.tolist(), chunksize))
 
     def gatefatigue_worker(chunk):
-        response_qs = np.zeros([len(chunk),Gate.n_modes,len(freqs)], dtype=np.complex)
+        response_qs = np.zeros([len(chunk), Gate.n_modes, len(freqs)], dtype=np.complex)
         np.einsum('jl,ijkl,pk->pkl',pqs_sections,FRF_qs, chunk,
                   out = response_qs, dtype=np.complex)
         int_qs = [np.trapz(abs(point), x=freqs, axis=1)*length_scale for point in response_qs]

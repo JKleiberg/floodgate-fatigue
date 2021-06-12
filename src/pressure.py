@@ -1,14 +1,17 @@
 """This script computes the pressure on the gate surface due to a given wave spectrum"""
+import dill
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline
 from src.spec import spectrum_generator
-from src.configuration import g, rho, H_GATE, cr, z_coords, dt, t, H_LAKE,N_HOURS,\
+from src.configuration import g, rho, cr, dt, t, H_LAKE, N_HOURS,\
                               tri_min, tri_mode, tri_max, beta_std, beta_mean
+with open('../data/06_transferfunctions/current_case.pkl', 'rb') as file:
+    GATE = dill.load(file)
 
 def hydrostatic(hsea):
     """Calculates the net hydrostatic water pressure on the gate."""
     fhs_z     = []        # Hydrostatic pressure as function of z
-    for i,z in enumerate(z_coords):
+    for i,z in enumerate(GATE.z_coords):
         if z < H_LAKE:
             fhs_lake = rho*g*(H_LAKE - z)
         else:
@@ -53,7 +56,7 @@ def linearwavetheory(amp_gate, k, h_sea):
 
     ## Quasi-static pressure
     fqs_fz    = []
-    for j, z in enumerate(z_coords):
+    for j, z in enumerate(GATE.z_coords):
         fqs_z =[]
         if z <= h_sea:
             p_shallow = shallow(amp_shallow)
@@ -82,7 +85,7 @@ def impactloads(wl_tot, tau_par):
     spl = InterpolatedUnivariateSpline(t_eta,wl_tot)
     wl_interpolated = spl(t)
     ## Find zero crossings and impact velocities
-    pos = np.array(wl_interpolated < H_GATE)
+    pos = np.array(wl_interpolated < GATE.HEIGHT)
     crossings = (pos[:-1] & ~pos[1:]).nonzero()[0]
     impact_vel = np.diff(wl_interpolated)[crossings]/dt
     ## Generate probabilistic wave impact parameters and create wave forces
@@ -126,7 +129,7 @@ def pressure(u_wind, hsea, tau_par=[0.01,0.105,0.2], spec='TMA'):
     pqs_f[:,0] = fhs_z              # Add hydrostatic pressure at zero frequency
 
     wl_tot = eta + h_sea_r  # Add depth to wave fluctuations
-    if (wl_tot < H_GATE).all():
-        return freqs, pqs_f, np.zeros(int(3600*N_HOURS/dt+1)),Hs,Tp
+    if (wl_tot < GATE.HEIGHT).all():
+        return freqs, pqs_f, np.zeros(int(3600*N_HOURS/dt+1)), Hs, Tp
     impact_force_t = impactloads(wl_tot, tau_par)
     return freqs, pqs_f, impact_force_t, Hs, Tp

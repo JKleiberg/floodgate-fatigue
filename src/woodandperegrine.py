@@ -1,18 +1,18 @@
 '''Originally created in Matlab by B. Hofland, including all notes '''
 
 import numpy as np
-from src.configuration import WIDTH, H_GATE, rho, Ly, dz
+from src.configuration import rho, dz
 
-def woodandperegrine(Ly=Ly):
-    a = H_GATE/Ly
-    adz = dz/Ly
+def woodandperegrine(GATE):
+    a = GATE.HEIGHT/GATE.Ly
+    adz = dz/GATE.Ly
 
-    x = np.transpose([np.linspace(0,WIDTH,int(WIDTH/0.005+1))]*(round((1/adz)*a)+1))
-    y = (200*WIDTH+1)*[np.linspace(0,a,int(a/adz+1))]
-    z = x + np.multiply(1j,y)
+    x = np.transpose([np.linspace(0, GATE.WIDTH, int(GATE.WIDTH/0.005+1))]*(round((1/adz)*a)+1))
+    y = (200*GATE.WIDTH+1)*[np.linspace(0, a, int(a/adz+1))]
+    z = x + np.multiply(1j, y)
 
     ## STEP 1 - CONFORMAL MAP 
-    w= np.cosh(np.multiply(np.pi/a,z))
+    w= np.cosh(np.multiply(np.pi/a, z))
 
     ## STEP 2 - TRANSLATION AND MAGNIFICATION
     M = 2/(np.cosh(np.pi/a)-1)
@@ -27,8 +27,8 @@ def woodandperegrine(Ly=Ly):
     ## set variables for integration over eta
     Nint     = 1000
     deta_int = a/Nint
-    eta_int  = np.multiply([x - 1/2 for x in range(1,1001)],deta_int)
-    b_int    = (np.cos(np.multiply(np.pi/a,eta_int))-N)/M
+    eta_int  = np.multiply([x - 1/2 for x in range(1,1001)], deta_int)
+    b_int    = (np.cos(np.multiply(np.pi/a, eta_int))-N)/M
     P = 0
 
     for n in range(1,31):
@@ -40,4 +40,4 @@ def woodandperegrine(Ly=Ly):
         # % sum Fourier modes to get P
         P += An * np.cos(alphan*eta) * np.exp(-alphan*ksi) 
         # not sure about the real() in right expression in paper
-    return P[1,:]*rho*Ly   #per m width
+    return P[1,:]*rho*GATE.Ly   #per m width

@@ -169,7 +169,7 @@ def binning(dists, h_res=0.1, u_res=1, save=True):
     plt.close()
     return fig, u_bins, h_bins, np.array(data)
 
-def binfilter(cases, freqfilter=True, intensityfilter=True):
+def binfilter(cases, HEIGHT, freqfilter=True, intensityfilter=True):
     """Creates discrete load cases by integrating the probability distributions over small segments.
 
     Parameters:
@@ -199,7 +199,7 @@ def binfilter(cases, freqfilter=True, intensityfilter=True):
         for u_val in u_vals:
             for h_val in h_vals:
                 _,_,_,Hm0,_ = spectrum_generator(u_val, h_val)
-                if 2*Hm0*(1+cr) + h_val > H_GATE:
+                if 2*Hm0*(1+cr) + h_val > GATE.HEIGHT:
                     break
             filtcases = np.delete(filtcases, np.where(np.bitwise_and((filtcases[:,2]<h_val),
                                                              (filtcases[:,3]==u_val)))[0], 0)

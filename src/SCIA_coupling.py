@@ -5,13 +5,13 @@ import re
 import subprocess
 import cloudpickle
 import numpy as np
+import pandas as pd
 import xml.dom.minidom as md
 from scipy.interpolate import Rbf
 root_dir = os.path.join(os.getcwd(), '..')
 sys.path.append(root_dir)
 clr.AddReference(r"C:\Program Files (x86)\SCIA\Engineer19.1\OpenAPI_dll\Scia.OpenAPI.dll")
 directory = os.path.dirname(os.path.dirname(root_dir))+'\\data\\05_SCIA\\SCIA_model'
-from src.configuration import x_coords, z_coords
 
 def write_xml_parameters(GATE): 
     """"Writes gate parameters to XML file which SCIA can read"""   
@@ -115,17 +115,38 @@ def read_scia_output(GATE):
             counter+=1
         else:
             counter=0
-    xx, zz = np.meshgrid(x_coords, z_coords, indexing='ij')
+    xx, zz = np.meshgrid(GATE.x_coords, GATE.z_coords, indexing='ij')
     x = coords[:,0]
     y = coords[:,2]
     Wxz = np.zeros([*xx.shape, GATE.n_modes])
     for mode in range(GATE.n_modes):
         z = col_disp[:,mode]
-        spline = Rbf(x,y,z,function='thin_plate', smooth=0.00001)
+        spline = Rbf(x, y, z, function='thin_plate', smooth=0.00001)
         Wxz[:,:,mode] = spline(xx,zz)
-            
-    res = [freqs, Wxz, col_disp, stress_pos, stress_neg, shear, faces, coords]
-    with open('../data/05_SCIA/'+str(GATE.case)+'/dry_modes.cp.pkl', 'wb') as file:
-            cloudpickle.dump(res, file)
+
+    def loadmodes_3D(modetype):
+        points = pd.DataFrame(columns=['x', 'y', 'z', *list(1+np.arange(GATE.n_modes))]).set_index(['x', 'y', 'z'])
+        for i, point in enumerate(coords):
+            if GATE.n_modes == 1:
+                points.loc[(point[0], point[1], point[2]), :] = modetype[i]
+            else:
+                points.loc[(point[0], point[1], point[2]), :] = modetype[i][:GATE.n_modes]
+        return points
+    GATE.disp3D = loadmodes_3D(col_disp)
+    GATE.stresspos3D = loadmodes_3D(stress_pos)
+    GATE.stressneg3D = loadmodes_3D(stress_neg)
+    GATE.shear3D = loadmodes_3D(shear)    
+    GATE.dry_freqs = freqs
+    GATE.Wxz = Wxz
+    GATE.col_disp = col_disp
+    GATE.stress_pos = stress_pos
+    GATE.stress_neg = stress_neg
+    GATE.shear = shear
+    GATE.faces = faces
+    GATE.coords = coords
+
+#     res = [freqs, Wxz, col_disp, stress_pos, stress_neg, shear, faces, coords]
+#     with open('../data/05_SCIA/'+str(GATE.case)+'/dry_modes.cp.pkl', 'wb') as file:
+#             cloudpickle.dump(res, file)
     print('Successfully read mode shapes from XML. File created at data/05_SCIA/%s'%GATE.case+r'/dry_modes.cp.pkl.')
-    return res
+    return GATE
