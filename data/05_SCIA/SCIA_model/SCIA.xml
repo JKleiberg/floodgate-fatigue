@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="UTF-8"?><project xmlns="http://www.scia.cz">
+   <def uri="SCIA_param.xml.def"/>
+   <container id="{5C62EA11-86D4-11D4-B3AB-00104BC3B531}" t="EP_Parameters.EP_Param.1">
+      <table id="B52F7C91-735E-4173-AC75-CC6E327C8CBA" name="Parameters" t="EP_Parameters.EP_Param.1">
+         <h>
+            <h0 t="Naam"/>
+            <h1 t="UniqueID"/>
+            <h2 t="Type"/>
+            <h3 t="Evaluatie"/>
+            <h4 t="Gebruik bereik"/>
+            <h5 t="Waarde"/>
+            <h6 t="Minimum"/>
+            <h7 t="Maximum"/>
+         </h>
+         <obj id="1" nm="Width">
+            <p0 v="2.5"/>
+            <p1 v="{75C481DC-879D-4C1A-95A8-9C58AD8E449A}"/>
+            <p2 t="Lengte" v="3"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="1"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="2,55"/>
+               </row>
+            </p5>
+            <p6 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="-1000000"/>
+               </row>
+            </p6>
+            <p7 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="1000000"/>
+               </row>
+            </p7>
+         </obj>
+         <obj id="2" nm="Height">
+            <p0 v="2.55"/>
+            <p1 v="{B18C564D-8562-4DC2-8852-6F52E822B7B5}"/>
+            <p2 t="Lengte" v="3"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="1"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="2,55"/>
+               </row>
+            </p5>
+            <p6 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="-1000000"/>
+               </row>
+            </p6>
+            <p7 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="1000000"/>
+               </row>
+            </p7>
+         </obj>
+         <obj id="3" nm="Height2">
+            <p0 v="5.0"/>
+            <p1 v="{8E7BCCB1-F8E3-48EE-ADE6-110F776B2B6C}"/>
+            <p2 t="Lengte" v="3"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="1"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="5,05"/>
+               </row>
+            </p5>
+            <p6 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="-1000000"/>
+               </row>
+            </p6>
+            <p7 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="1000000"/>
+               </row>
+            </p7>
+         </obj>
+         <obj id="4" nm="Height3">
+            <p0 v="7.5"/>
+            <p1 v="{C8651502-A17B-4331-9557-4CF5587E1758}"/>
+            <p2 t="Lengte" v="3"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="1"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="7,5"/>
+               </row>
+            </p5>
+            <p6 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="-1000000"/>
+               </row>
+            </p6>
+            <p7 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="1000000"/>
+               </row>
+            </p7>
+         </obj>
+         <obj id="5" nm="Width2">
+            <p0 v="5"/>
+            <p1 v="{68BA8461-0BB6-46A6-BF5C-62850EB481BA}"/>
+            <p2 t="Lengte" v="3"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="1"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="5"/>
+               </row>
+            </p5>
+            <p6 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="-1000000"/>
+               </row>
+            </p6>
+            <p7 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="1000000"/>
+               </row>
+            </p7>
+         </obj>
+         <obj id="6" nm="Width3">
+            <p0 v="7.45"/>
+            <p1 v="{343EFBFC-2CEA-4570-8A38-7133F6007AC3}"/>
+            <p2 t="Lengte" v="3"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="1"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="7,45"/>
+               </row>
+            </p5>
+            <p6 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="-1000000"/>
+               </row>
+            </p6>
+            <p7 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="1000000"/>
+               </row>
+            </p7>
+         </obj>
+         <obj id="7" nm="Stiffness">
+            <p0 v="300000000000.0"/>
+            <p1 v="{89A1E0A3-4E6A-49C7-B4E6-515961BF6DA4}"/>
+            <p2 t="Lijnstijfheid" v="23"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="300000000000"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="8" nm="Stiffness2">
+            <p0 v="0"/>
+            <p1 v="{4EBF68A4-CC57-4159-8C9B-F475588CE2F5}"/>
+            <p2 t="Lijnstijfheid" v="23"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="9" nm="Stiffness3">
+            <p0 v="300000000000.0"/>
+            <p1 v="{6808D156-9CC5-4AB8-A8F6-5B9D682D76E3}"/>
+            <p2 t="Lijnstijfheid" v="23"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="300000000000"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="10" nm="Stiffness4">
+            <p0 v="0"/>
+            <p1 v="{DFD5CB4E-EC03-4B0D-8A19-56661526301B}"/>
+            <p2 t="Lijnstijfheid" v="23"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="12" nm="Platethickness">
+            <p0 v="0.05"/>
+            <p1 v="{04928D27-114A-4D26-8910-738A625A3483}"/>
+            <p2 t="Doorsnede lengte" v="11"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,05"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="13" nm="LengthHorRibs">
+            <p0 v="0.71"/>
+            <p1 v="{BACD0F1E-A078-483D-8C17-16DA8C7B05F5}"/>
+            <p2 t="Lengte" v="3"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,71"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="14" nm="LengthVertRibs">
+            <p0 v="0.71"/>
+            <p1 v="{CC042FCB-C6CD-4DFC-B6E8-922E0555B712}"/>
+            <p2 t="Lengte" v="3"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,71"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="15" nm="RibThicknessHor">
+            <p0 v="0.1"/>
+            <p1 v="{D381ED92-E46D-4D09-B61B-DD51B538269F}"/>
+            <p2 t="Doorsnede lengte" v="11"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,1"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="17" nm="RibThicknessHor2">
+            <p0 v="0.1"/>
+            <p1 v="{70AD9522-91C8-408C-99D2-F60507C34EE5}"/>
+            <p2 t="Doorsnede lengte" v="11"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,1"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="18" nm="RibThicknessHor3">
+            <p0 v="0.1"/>
+            <p1 v="{1AB1E4DA-1193-4621-B225-3C19B6476CEF}"/>
+            <p2 t="Doorsnede lengte" v="11"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,1"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="19" nm="RibThicknessHor4">
+            <p0 v="0.1"/>
+            <p1 v="{7E772397-C7C6-4713-94FB-5B5915F1F25A}"/>
+            <p2 t="Doorsnede lengte" v="11"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,1"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="20" nm="RibThicknessVert">
+            <p0 v="0.1"/>
+            <p1 v="{5B43B5CC-F41C-4B20-BB3C-8A63633E2BF4}"/>
+            <p2 t="Doorsnede lengte" v="11"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,1"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="21" nm="RibThicknessVert2">
+            <p0 v="0.1"/>
+            <p1 v="{892EDA4B-551B-4C84-9EBC-D48314740752}"/>
+            <p2 t="Doorsnede lengte" v="11"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,1"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="22" nm="RibThicknessVert3">
+            <p0 v="0.1"/>
+            <p1 v="{C1D3F9FB-5A88-47BF-A805-BB692D3DCB73}"/>
+            <p2 t="Doorsnede lengte" v="11"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,1"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="23" nm="RibThicknessVert4">
+            <p0 v="0.1"/>
+            <p1 v="{6CD3850C-C976-4026-9E7C-56C28B6AE9BE}"/>
+            <p2 t="Doorsnede lengte" v="11"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,1"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="24" nm="Width4">
+            <p0 v="10"/>
+            <p1 v="{A830923A-8C47-4308-9EE0-A63DD4D46506}"/>
+            <p2 t="Lengte" v="3"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="10"/>
+               </row>
+            </p5>
+         </obj>
+         <obj id="25" nm="RibThicknessVert5">
+            <p0 v="0.1"/>
+            <p1 v="{9946D52A-4594-4659-BF8E-F0EF4A208D4F}"/>
+            <p2 t="Doorsnede lengte" v="11"/>
+            <p3 t="Waarde" v="0"/>
+            <p4 v="0"/>
+            <p5 t="">
+               <h>
+                  <h0 t="Reëel"/>
+               </h>
+               <row id="0">
+                  <p0 v="0,1"/>
+               </row>
+            </p5>
+         </obj>
+      </table>
+   </container>
+</project>
