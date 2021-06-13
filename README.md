@@ -2,6 +2,7 @@
 # Fatigue in flood gates due to dynamic wave impacts
 Python code created for graduation thesis on the fatigue of flood gates by Joachim Kleiberg.
 Worked on from September 1, 2020 to June 29, 2021 in partial fulfilment of the degree of Master of Science at the Delft University of Technology.
+The graduation project was part of an internship at Witteveen+Bos.
 
 ## Required software:
 - SCIA Engineer 19.x
