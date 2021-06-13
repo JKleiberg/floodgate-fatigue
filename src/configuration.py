@@ -14,9 +14,6 @@ H_LAKE= 4      # (m)     Depth on lake side (assumed constant)
 cp    = 1500   # (m/s)   Speed of sound in water
 
 ## Structural properties
-# H_GATE = 7.5      # (m)     Gate height (also z-coord of overhang)
-# WIDTH  = 10       # (m)     Gate width
-# Ly     = 1        # (m)     Overhang length
 cr     = 0.8      # (-)     Reflection coefficient
 rho_s  = 7850     # (kg/m3) Steel density
 
@@ -34,6 +31,7 @@ beta_mean = 1.17 # (-)   Mean
 beta_std  = 0.11 # (-)   Std
 
 ## Modeling settings
+n_scia_modes = 16# (-)   Amount of modes SCIA outputs (Not the same as # modes used in model!)
 n_freqs = 4001   # (-)   Amount of frequencies to calculate FRF for
 f_max = 200      # (Hz)  Maximum frequency to calculate FRF for
 n_x = 4          # (-)   Amount of FSI-segments in x-direction

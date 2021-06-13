@@ -12,6 +12,7 @@ root_dir = os.path.join(os.getcwd(), '..')
 sys.path.append(root_dir)
 clr.AddReference(r"C:\Program Files (x86)\SCIA\Engineer19.1\OpenAPI_dll\Scia.OpenAPI.dll")
 directory = os.path.dirname(os.path.dirname(root_dir))+'\\data\\05_SCIA\\SCIA_model'
+from src.configuration import n_scia_modes
 
 def write_xml_parameters(GATE): 
     """"Writes gate parameters to XML file which SCIA can read"""   
@@ -81,7 +82,7 @@ def read_scia_output(GATE):
                 col_disp[node-1,j] = u_y[j,i]
 
     ## 3D stress
-    p_ids = containers.item(2+GATE.n_modes).getElementsByTagName('p1')
+    p_ids = containers.item(2+n_scia_modes).getElementsByTagName('p1')
     ids = [p_id.getAttribute('v') for p_id in p_ids]#[1:]]
     s_nodes = [int("".join(re.findall('\d+', p_id.split(';')[1]))) for p_id in ids]
     elements = [int("".join(re.findall('\d+', p_id.split(';')[0]))) for p_id in ids]
@@ -89,7 +90,7 @@ def read_scia_output(GATE):
     eq_min = np.zeros([GATE.n_modes, len(s_nodes)])
     tau_max = np.zeros([GATE.n_modes, len(s_nodes)])
     for i in range(GATE.n_modes):
-        ii = i+2+GATE.n_modes
+        ii = i+2+n_scia_modes
         p_eq_plus = containers[ii].getElementsByTagName('p10')
         p_eq_min = containers[ii].getElementsByTagName('p11')
         p_tau = containers[ii].getElementsByTagName('p14')

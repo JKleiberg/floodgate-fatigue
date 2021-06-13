@@ -133,7 +133,7 @@ def fluid_structure_interaction(GATE, fluidmodes=[5,6,5]):
     f2_ky = separation_constant(kf, f2_kx, f2_kz, fluidmodes[1])
     f3_ky = separation_constant(kf, f3_kx, f3_kz, fluidmodes[2])
     
-    omega_n = np.array(GATE.dry_freqs)*2*np.pi*(1+GATE.zeta*1j)
+    omega_n = np.array(GATE.dry_freqs[:GATE.n_modes])*2*np.pi*(1+GATE.zeta*1j)
     
     def solve_fsi(w):
         Aln_RAO_w = np.zeros([n_x, n_z, GATE.n_modes], dtype=complex)

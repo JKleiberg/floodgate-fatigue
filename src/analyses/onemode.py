@@ -1,33 +1,37 @@
 """ Calculates the stress at a specified point in the gate for 1 mode,
-based on previously calculated quasi-static stress spectra and wave impact time series.
+based on previously calculated quasi-static stress spectra and wave impact time series. 
+Requires that SCIA-FSI model has been run for current case name+"_1mode".
 
 """
-import os
-import sys
+# import os
+# import sys
+import dill
 import numpy as np
 import matplotlib.pyplot as plt
 import pyfftw
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
-from src.configuration import N_HOURS, WIDTH, dz, H_GATE, z_coords, t, Gate, dt, H_LAKE, rho, cr, beta_mean
+from src.configuration import N_HOURS, dz, n_x, n_z, t, dt, H_LAKE, rho, cr, beta_mean
 from src.utilities.nearest import nearest
 from src.woodandperegrine import woodandperegrine
 from src.stress import imp_discretize
 pyfftw.config.NUM_THREADS = 4
-root_dir = os.path.join(os.getcwd(), '..')
-sys.path.append(root_dir)
+# root_dir = os.path.join(os.getcwd(), '..')
+# sys.path.append(root_dir)
 
-# Prepare Wood & Peregrine dimensionless impact shape
-Pz_impact_U1 = woodandperegrine()
-
+# Load system properties
+with open('../data/06_transferfunctions/current_case.pkl', 'rb') as file:
+    GATE = dill.load(file)
 # Load FRF corresponding to loaded system properties
-directory = '../data/06_transferfunctions/'+str(Gate.case)+'_1mode/FRF_1modes'+str(Gate.case)+'_1mode.npy'
+directory = '../data/06_transferfunctions/'+str(GATE.case)+'_1mode/FRF_'+str(GATE.case)+'_1mode_1modes.npy'
 try:
     frf_intpl = np.load(directory, mmap_mode='r')
     # Map mode only loads parts of 3Gb matrix when needed instead of keeping it all in RAM.
 except OSError:
     print("An exception occurred: no FRF found at "+directory)
-func_small = interp1d(Gate.f_trunc, frf_intpl, axis=3, fill_value= 'extrapolate')
-frf_small = func_small(Gate.FRF_f)
+func_small = interp1d(GATE.f_intpl, frf_intpl, axis=3, fill_value= 'extrapolate')
+frf_small = func_small(GATE.f_tf)
+# Prepare Wood & Peregrine dimensionless impact shape
+Pz_impact_U1 = woodandperegrine(GATE)
 
 def plot_stress_time(F_tot, response_t, coords, t_range):
     """Plots result of stress_time"""
@@ -62,9 +66,9 @@ def qs_discretize(pqs_f):
     """Integrates the quasi-static pressure spectrum over the gate sections."""
     # does not integrate over x!
     # Becomes problem if segments are variable or inputs not uniform in x-direction
-    return np.array([np.sum(np.split(pqs_f,Gate.ii_z[1:-1], axis=0)[i],axis=0)*dz/\
-                     (z_coords[Gate.ii_z[i+1]]-z_coords[Gate.ii_z[i]])\
-                     for i in range(Gate.n_z)])
+    return np.array([np.sum(np.split(pqs_f, GATE.ii_z[1:-1], axis=0)[i],axis=0)*dz/\
+                     (GATE.z_coords[GATE.ii_z[i+1]]-GATE.z_coords[GATE.ii_z[i]])\
+                     for i in range(n_z)])
 
 def imp_discretize(impact_force_t):
     """Integrates the impulsive pressure time series over the gate sections."""
@@ -73,8 +77,8 @@ def imp_discretize(impact_force_t):
     np.multiply.outer(impact_force_t, Pz_impact_U1, out = p_matrix)
     # does not integrate over x!
     # Becomes problem if segments are variable or inputs not uniform in x-direction
-    return np.array([np.sum(np.split(p_matrix,Gate.ii_z[1:-1], axis=1)[i],axis=1)*dz/\
-                     (z_coords[Gate.ii_z[i+1]]-z_coords[Gate.ii_z[i]]) for i in range(Gate.n_z)])
+    return np.array([np.sum(np.split(p_matrix, GATE.ii_z[1:-1], axis=1)[i], axis=1)*dz/\
+                     (GATE.z_coords[GATE.ii_z[i+1]]-GATE.z_coords[GATE.ii_z[i]]) for i in range(n_z)])
 
 def stress_time_1mode(freqs, pqs_f, impact_force_t, coords, stresstype = None, 
                 plot=False, plotrange = [50,80]):
@@ -96,20 +100,20 @@ def stress_time_1mode(freqs, pqs_f, impact_force_t, coords, stresstype = None,
 
     # IRFFT of quasi-static part
     pqs_sections = qs_discretize(pqs_f)
-    q_tot = pqs_sections.sum(axis=(0))*(H_GATE/Gate.n_z)
+    q_tot = pqs_sections.sum(axis=(0))*(GATE.HEIGHT/n_z)
     # N/m (only works if sections are of constant size)
     # Interpolate FRF to correct resolution
-    func = interp1d(Gate.FRF_f, frf_small, axis=3)
+    func = interp1d(GATE.f_tf, frf_small, axis=3)
     frf_qs = func(freqs)
     if stresstype == 'pos':
-        mode_shape = Gate.stresspos3D.loc[coords].to_list()
+        mode_shape = GATE.stresspos3D.loc[coords].to_list()
     elif stresstype == 'neg':
-        mode_shape = Gate.stressneg3D.loc[coords].to_list()
+        mode_shape = GATE.stressneg3D.loc[coords].to_list()
     else:
-        if sum(Gate.stressneg3D.loc[coords] - Gate.stresspos3D.loc[coords])>0:
-            mode_shape = Gate.stressneg3D.loc[coords].to_list()
+        if sum(GATE.stressneg3D.loc[coords] - GATE.stresspos3D.loc[coords])>0:
+            mode_shape = GATE.stressneg3D.loc[coords].to_list()
         else:
-            mode_shape = Gate.stresspos3D.loc[coords].to_list()
+            mode_shape = GATE.stresspos3D.loc[coords].to_list()
     response_qs = np.zeros(len(freqs), dtype=np.complex)
     np.einsum('jl,ijkl->l', pqs_sections, frf_qs,
               out=response_qs, dtype=np.complex)
@@ -127,11 +131,11 @@ def stress_time_1mode(freqs, pqs_f, impact_force_t, coords, stresstype = None,
     p_sections = imp_discretize(impact_force_t)
     p_imp_f = pyfftw.interfaces.numpy_fft.rfft(p_sections, axis=1)
     # Find total force
-    F_gate = p_sections.sum(axis=(0))*(H_GATE/Gate.n_z)
+    F_gate = p_sections.sum(axis=(0))*(GATE.HEIGHT/n_z)
     # N/m over width (only works if sections are of constant size)
 
     # Compute response for modes
-    response_imp = np.zeros(len(Gate.f_trunc), dtype=np.complex)
+    response_imp = np.zeros(len(GATE.f_intpl), dtype=np.complex)
     np.einsum('jl,ijkl->l', p_imp_f, frf_intpl,
               out=response_imp, dtype=np.complex)
     response_imp_t = mode_shape[0]*pyfftw.interfaces.numpy_fft.irfft(response_imp)
@@ -167,28 +171,29 @@ def single_wave_1mode(h_wave, t_wave, tau, duration=30, responsetype='stress', c
     np.multiply.outer(pulse, Pz_impact_U1, out = p_matrix)
 
     # does not integrate over x!
-    p_sections = np.array([np.sum(np.split(p_matrix,Gate.ii_z[1:-1], axis=1)[i],axis=1)*dz                           /(z_coords[Gate.ii_z[i+1]]-z_coords[Gate.ii_z[i]]) for i in range(Gate.n_z)])
+    p_sections = np.array([np.sum(np.split(p_matrix, GATE.ii_z[1:-1], axis=1)[i], axis=1)*dz/
+                           (GATE.z_coords[GATE.ii_z[i+1]]-GATE.z_coords[GATE.ii_z[i]]) for i in range(n_z)])
 
     # Find force spectrum for sections
     p_imp_f = pyfftw.interfaces.numpy_fft.rfft(p_sections,axis=1)
     f = np.fft.rfftfreq(len(pulse), d=dt)
     # Interpolate to correct resolution
-    FRF_int = np.zeros((Gate.n_x, Gate.n_z, len(f)), dtype='complex')
-    for i in range(Gate.n_x):
-        for j in range(Gate.n_z):
-            func = interp1d(Gate.FRF_f, frf_small[i][j],
+    FRF_int = np.zeros((n_x, n_z, len(f)), dtype='complex')
+    for i in range(n_x):
+        for j in range(n_z):
+            func = interp1d(GATE.f_tf, frf_small[i][j],
                             bounds_error=False, fill_value=np.nan)
             FRF_int[i,j,:] = func(f)
     
     # Compute response for modes
     response_modes = np.zeros(len(f), dtype=np.complex)
     if responsetype == 'stress':
-        if sum(Gate.stressneg3D.loc[coords] - Gate.stresspos3D.loc[coords])>0:
-            mode_shape = [[i] for i in Gate.stressneg3D.loc[coords].to_list()]
+        if sum(GATE.stressneg3D.loc[coords] - GATE.stresspos3D.loc[coords])>0:
+            mode_shape = [[i] for i in GATE.stressneg3D.loc[coords].to_list()]
         else:
-            mode_shape = [[i] for i in Gate.stresspos3D.loc[coords].to_list()]
+            mode_shape = [[i] for i in GATE.stresspos3D.loc[coords].to_list()]
     elif responsetype == 'disp':
-        mode_shape = [[-i] for i in Gate.disp3D.loc[coords].to_list()] # minus sign so direction matches forces
+        mode_shape = [[-i] for i in GATE.disp3D.loc[coords].to_list()] # minus sign so direction matches forces
     else:
         print('Wrong response type provided')
         return

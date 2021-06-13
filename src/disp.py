@@ -1,16 +1,19 @@
+import dill
 import numpy as np
 import matplotlib.pyplot as plt
 import pyfftw
 from scipy.interpolate import interp1d
-from src.configuration import N_HOURS, WIDTH, dz, H_GATE, Gate, z_coords, t
+from src.configuration import N_HOURS, dz, t, n_x, n_z
 from src.woodandperegrine import woodandperegrine
 pyfftw.config.NUM_THREADS = 4
 TUred = "#c3312f"
 TUblue = "#00A6D6"
 TUgreen = "#00a390"
-
+# Load system properties
+with open('../data/06_transferfunctions/current_case.pkl', 'rb') as file:
+    GATE = dill.load(file)
 # Load FRF corresponding to loaded system properties
-directory = '../data/06_transferfunctions/'+str(Gate.case)+'/FRF_'+str(Gate.n_modes)+'modes'+str(Gate.case)+'.npy'
+directory = '../data/06_transferfunctions/'+str(GATE.case)+'/FRF_'+str(GATE.case)+'_'+str(GATE.n_modes)+'modes.npy'
 try:
     frf_intpl = np.load(directory, mmap_mode='r')
     # Map mode only loads parts of 3Gb matrix when needed instead of keeping it all in RAM.
@@ -20,56 +23,56 @@ except OSError:
 # Stress functions
 def qs_disp_response(f, pqs_f, coords):
     # Interpolate to correct resolution
-    FRF_qs = np.zeros((Gate.n_x,Gate.n_z,Gate.n_modes,len(f)),dtype='complex')
-    for i in range(Gate.n_x):
-        for j in range(Gate.n_z):
-            for k in range(Gate.n_modes):
-                func = interp1d(Gate.FRF_f,Gate.FRF[i][j][k],
+    FRF_qs = np.zeros((n_x, n_z, GATE.n_modes, len(f)), dtype='complex')
+    for i in range(n_x):
+        for j in range(n_z):
+            for k in range(GATE.n_modes):
+                func = interp1d(GATE.f_tf, GATE.FRF[i][j][k],
                                 bounds_error=False,fill_value=np.nan)
                 FRF_qs[i,j,k,:] = func(f)
 
     # Integrate pressures over sections
     # does not integrate over x!
-    pqs_sections = np.array([np.sum(np.split(pqs_f,Gate.ii_z[1:-1], axis=0)[i],axis=0)*dz\
-                             /(z_coords[Gate.ii_z[i+1]]-z_coords[Gate.ii_z[i]])\
-                             for i in range(Gate.n_z)])
-    q_tot = pqs_sections.sum(axis=(0))*(H_GATE/Gate.n_z)
+    pqs_sections = np.array([np.sum(np.split(pqs_f,GATE.ii_z[1:-1], axis=0)[i],axis=0)*dz\
+                             /(GATE.z_coords[GATE.ii_z[i+1]]-GATE.z_coords[GATE.ii_z[i]])\
+                             for i in range(n_z)])
+    q_tot = pqs_sections.sum(axis=(0))*(GATE.HEIGHT/n_z)
     # N/m (only works if sections are of constant size)
 
     # Compute response spectrum
-    response_gate_qs = np.zeros((Gate.n_modes,len(f)), dtype=np.complex64)
-    mode_shape = [[i] for i in Gate.disp3D.loc[coords].to_list()]
+    response_gate_qs = np.zeros((GATE.n_modes, len(f)), dtype=np.complex64)
+    mode_shape = [[i] for i in GATE.disp3D.loc[coords].to_list()]
     np.multiply(np.multiply(pqs_sections[np.newaxis,:,np.newaxis,:],FRF_qs)\
                 .sum(axis=(0,1)), mode_shape, out = response_gate_qs)
     return q_tot, response_gate_qs
 
 def impulsive_disp_response(p_imp_t, coords):
     # Prepare Wood & Peregrine dimensionless impact shape
-    Pz_impact_U1 = woodandperegrine()
+    Pz_impact_U1 = woodandperegrine(GATE)
     # Construct force-time matrix for all z-coordinates
     p_matrix = np.zeros((len(p_imp_t), len(Pz_impact_U1)))
     np.multiply.outer(p_imp_t, Pz_impact_U1, out = p_matrix)
 
     # does not integrate over x!
-    p_sections = np.array([np.sum(np.split(p_matrix,Gate.ii_z[1:-1], axis=1)[i],axis=1)*dz\
-                           /(z_coords[Gate.ii_z[i+1]]-z_coords[Gate.ii_z[i]]) for i in range(Gate.n_z)])
+    p_sections = np.array([np.sum(np.split(p_matrix, GATE.ii_z[1:-1], axis=1)[i], axis=1)*dz\
+                           /(GATE.z_coords[GATE.ii_z[i+1]]-GATE.z_coords[GATE.ii_z[i]]) for i in range(n_z)])
 
     # Find force spectrum for sections
     p_imp_f = pyfftw.interfaces.numpy_fft.rfft(p_sections,axis=1)
 
     # Compute response for modes
-    response_gate_imp = np.zeros((Gate.n_modes,len(Gate.f_trunc)), dtype=np.complex64)
-    mode_shape = [[i] for i in Gate.disp3D.loc[coords].to_list()]
+    response_gate_imp = np.zeros((GATE.n_modes,len(GATE.f_intpl)), dtype=np.complex64)
+    mode_shape = [[i] for i in GATE.disp3D.loc[coords].to_list()]
 
     np.multiply(np.multiply(p_imp_f[np.newaxis,:,np.newaxis,:],frf_intpl)\
                 .sum(axis=(0,1)), mode_shape, out = response_gate_imp)
 
     # Find total force
-    F_gate = p_sections.sum(axis=(0))*(H_GATE/Gate.n_z)
+    F_gate = p_sections.sum(axis=(0))*(GATE.HEIGHT/n_z)
     # N/m over width (only works if sections are of constant size)
     return F_gate, response_gate_imp
 
-def disp_time(f, pqs_f, p_imp_t, coords,plot=False, plotrange=[50,80]):
+def disp_time(f, pqs_f, p_imp_t, coords, plot=False, plotrange=[50,80]):
     # IFFT of quasi-static part
     N = len(pqs_f[0])  # IRFFT scale factor
     q_tot, response_qs = qs_disp_response(f, pqs_f, coords)

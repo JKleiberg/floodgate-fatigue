@@ -271,6 +271,4 @@ def single_wave_U(U, tau, duration=30, responsetype='stress', coords=(5,1,7.5), 
     if modes:
         return t_pulse, response_tot
     elif modes == False:
-        return t_pulse, response_tot.sum(axis=0)
-    
-    
+        return t_pulse, response_tot.sum(axis=0)    

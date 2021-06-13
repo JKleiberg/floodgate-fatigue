@@ -6,8 +6,7 @@ import cloudpickle
 import scipy, scipy.signal
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-from src.configuration import h0, cr, H_GATE
-from src.utilities.Multicore_CaseGen import filterworker
+from src.configuration import h0, cr
 from src.spec import spectrum_generator
 
 def import_raw_data(windfile, waterfile, bins=30):
@@ -169,7 +168,7 @@ def binning(dists, h_res=0.1, u_res=1, save=True):
     plt.close()
     return fig, u_bins, h_bins, np.array(data)
 
-def binfilter(cases, HEIGHT, freqfilter=True, intensityfilter=True):
+def binfilter(cases, GATE, freqfilter=True, intensityfilter=True):
     """Creates discrete load cases by integrating the probability distributions over small segments.
 
     Parameters:
