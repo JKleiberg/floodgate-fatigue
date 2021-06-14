@@ -2,7 +2,7 @@
 that characterize the environmental conditions during the lifetime of the structure."""
 import numpy as np
 import pandas as pd
-import cloudpickle
+import dill
 import scipy, scipy.signal
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
@@ -45,7 +45,7 @@ def import_raw_data(windfile, waterfile, bins=30):
     wind = wind.dropna()
     raw_data = wind[(wind.wind != 0)]
     with open('../data/02_preprocessing/data_1971.cp.pkl', 'wb') as prepped:
-        cloudpickle.dump(raw_data, prepped)
+        dill.dump(raw_data, prepped)
         print('Data stored in ../data/02_preprocessing/data_1971.cp.pkl')
 
     fig, (ax1,ax2) = plt.subplots(1,2)
@@ -95,7 +95,7 @@ def create_pdf(data, rise=1, n_h=1000, n_u=1e4, h_range=[0,10]):
     cc_pdf = scipy.stats.uniform(0, rise)
     hcc_pdf = scipy.signal.fftconvolve(delta*h_pdf, delta*cc_pdf.pdf(x_h_p), 'same')/delta
     print("Integral of convoluted pdf: "+str(round(np.trapz(hcc_pdf, x_h_p), 3)))
-    x_h = np.linspace(*h_range, n_h)
+    x_h = np.linspace(*h_range, int(n_h))
     hcc_pdf = abs(scipy.interpolate.interp1d(x_h_p+h0, hcc_pdf, kind='cubic')(x_h))
     h_pdf = scipy.interpolate.interp1d(x_h_p+h0, h_pdf)(x_h)
     fig = plt.figure()
@@ -115,7 +115,7 @@ def create_pdf(data, rise=1, n_h=1000, n_u=1e4, h_range=[0,10]):
     x_u = np.linspace(0, u10000, int(n_u))
     u_pdf = scipy.stats.lognorm.pdf(x_u, *u_dist)
     with open('../data/03_loadevents/pdfs.cp.pkl', 'wb') as file:
-        cloudpickle.dump([x_h, hcc_pdf, x_u, u_pdf], file)
+        dill.dump([x_h, hcc_pdf, x_u, u_pdf], file)
     return fig, [x_h, hcc_pdf, x_u, u_pdf]
 
 def binning(dists, h_res=0.1, u_res=1, save=True):
@@ -153,9 +153,9 @@ def binning(dists, h_res=0.1, u_res=1, save=True):
             data.append([bin_id, prob, mean_h, mean_u])
     if save:
         with open('../data/03_loadevents/unfiltered_cases.cp.pkl', 'wb') as f:
-            cloudpickle.dump(np.array(data), f)
+            dill.dump(np.array(data), f)
         with open('../data/03_loadevents/currentbins.cp.pkl', 'wb') as bins:
-            cloudpickle.dump([x_u, x_h, u_bins, h_bins], bins)
+            dill.dump([x_u, x_h, u_bins, h_bins], bins)
     fig = plt.figure(figsize=(12, 5))
     data = np.array(data)
     hist = plt.hist2d(data[:,2], data[:,3], weights=data[:,1], range=[(min(x_h),max(x_h)),(min(x_u),max(x_u))],
@@ -166,7 +166,7 @@ def binning(dists, h_res=0.1, u_res=1, save=True):
     plt.xlabel('d [m]', labelpad=20)
     plt.ylabel('$U_{10}$ [m/s]', labelpad=20)
     plt.close()
-    return fig, u_bins, h_bins, np.array(data)
+    return fig, u_bins, h_bins, data
 
 def binfilter(cases, GATE, freqfilter=True, intensityfilter=True):
     """Creates discrete load cases by integrating the probability distributions over small segments.
@@ -188,12 +188,12 @@ def binfilter(cases, GATE, freqfilter=True, intensityfilter=True):
         print('Filtering cases with probability less than 1/10,000 years...')
         p = (10000*24*365)**-1
         filtcases = cases[cases[:,1]>p]
-        print('%s cases left after frequency filtering'%len(cases))
+        print('%s cases left after frequency filtering'%len(filtcases))
 
     if intensityfilter:
         print('Filtering cases with h_S+2*Hm0 < h_G...')
-        u_vals = np.flip(np.unique(cases[:,3]))
-        h_vals = np.unique(cases[:,2])
+        u_vals = np.flip(np.unique(filtcases[:,3]))
+        h_vals = np.unique(filtcases[:,2])
         limits = []
         for u_val in u_vals:
             for h_val in h_vals:
@@ -210,10 +210,10 @@ def binfilter(cases, GATE, freqfilter=True, intensityfilter=True):
                        columns=['p','mean_h','mean_u'])
     print('%d%% of bins filtered out.'%ratio)
     with open('../data/03_loadevents/filtered_cases.cp.pkl', 'wb') as f:
-        cloudpickle.dump(df_filt, f)
+        dill.dump(df_filt, f)
 
     with open('../data/03_loadevents/currentbins.cp.pkl', 'rb') as file:
-        x_u, x_h, u_bins, h_bins = cloudpickle.load(file)
+        x_u, x_h, u_bins, h_bins = dill.load(file)
     df_all  = pd.DataFrame(data=cases[:,1:],
                            index=cases[:,0],
                            columns=['p','mean_h','mean_u'])
@@ -239,3 +239,105 @@ def binfilter(cases, GATE, freqfilter=True, intensityfilter=True):
     plt.ylim(min(df_filt['mean_u']), 45)
     plt.close()
     return fig, df_filt
+
+def discrete_variance(h_sea, h_res, u_wind, u_res, runs, coords):
+    """Compares the variance of load cases for different discretisation resolutions to optimize the accuracy and efficiency.
+    
+    Parameters:
+    h_sea: Average water level for comparison
+    h_res: Discretisation resolution for water level
+    u_wind: Average wind velocity for load case
+    u_res: Discretisation resolution for wind velocity
+    runs: Amount of random simulations
+    coords: Coordinates for fatigue calculation
+    
+    Returns:
+
+    d_list: Fatigue damage factors for all simulations
+
+    """
+    with open('../data/03_loadevents/pdfs.cp.pkl', 'rb') as file:  
+        x_h, h_pdf, x_u, u_pdf = dill.load(file)
+    coords  = nearest(*coords)
+    if h_res==0:
+        h_values = np.ones(runs)*h_sea
+    else:
+        h_range = [h_sea-h_res/2, h_sea, h_sea+h_res/2]
+        h_slice = np.logical_and((x_h >= min(h_range)), x_h <= max(h_range))
+        h_values = np.random.choice(a=x_h[h_slice], p=h_pdf[h_slice]/np.sum(h_pdf[h_slice]), size=runs)
+    if u_res==0:
+        u_values = np.ones(runs)*u_wind
+    else:
+        u_range = [u_wind-u_res/2, u_wind, u_wind+u_res/2]
+        u_slice = np.logical_and((x_u >= min(u_range)), x_u <= max(u_range))
+        u_values = np.random.choice(a=x_u[u_slice], p=u_pdf[u_slice]/np.sum(u_pdf[u_slice]), size=runs)
+    
+    d_list = np.zeros(runs)
+    for i, (rand_u, rand_h) in enumerate(zip(u_values, h_values)):
+        f, pqs_f, p_imp_t, _, _ = pressure(rand_u, rand_h)
+        _, response_t = stress_time(f, pqs_f, p_imp_t, coords)
+        d_list[i] = fatigue(response_t, cat=100)
+    return d_list
+
+def sensitivity_discretisation(h_sea, h_res_list, u_wind, u_res_list, runs=100, coords=(5,1,7.5), overwrite=False):
+    """Compares the variance of load cases for different discretisation resolutions to optimize the accuracy and efficiency.
+
+    Parameters:
+    h_sea: Average water level for comparison
+    h_res_list: List of discretisation resolutions for water level
+    u_wind: Average wind velocity for load case
+    u_res_list: List of discretisation resolutions for wind velocity
+    runs: Amount of random simulations per resolution
+    coords: Coordinates for fatigue calculation
+    overwrite: Whether to overwrite previous calculations
+
+    """
+    filename = '../data/03_loadevents/%s_fatigue_std_comparisons.pkl'%runs
+    if os.path.exists(filename) and (overwrite==False):
+        with open(filename, 'rb') as file:  
+            d_ref, h_list_d_old, u_list_d_old, h_res_list_old, u_res_list_old = dill.load(file)
+        new_h_res = list(set(h_res_list) - set(h_res_list_old))
+        new_u_res = list(set(u_res_list) - set(u_res_list_old))
+        print('Using old calculations..')
+    else:
+        new_h_res = h_res_list
+        new_u_res = u_res_list
+        h_res_list_old = []
+        u_res_list_old = []
+        h_list_d_old = np.zeros(0)
+        u_list_d_old = np.zeros(0)
+        print('Starting new calculation...')
+        d_ref = discrete_variance(h_sea, 0, u_wind, 0, runs, coords)
+    h_list_d = np.zeros([len(new_h_res), runs])
+    for i, h_res in enumerate(new_h_res):
+        h_list_d[i] = discrete_variance(h_sea, h_res, u_wind, 0, runs, coords)
+    print('Finished water level sensitivity.')
+    u_list_d = np.zeros([len(new_u_res), runs])
+    for i, u_res in enumerate(new_u_res):
+        u_list_d[i] = discrete_variance(h_sea, 0, u_wind, u_res, runs, coords)
+    print('Finished wind velocity sensitivity.')
+    h_list_d = np.concatenate((h_list_d, h_list_d_old), axis=0)
+    u_list_d = np.concatenate((u_list_d, u_list_d_old), axis=0)
+    h_res_list = new_h_res+h_res_list_old
+    u_res_list = new_u_res+u_res_list_old
+    with open(filename, 'wb') as file:  
+        dill.dump([d_ref, h_list_d, u_list_d, h_res_list, u_res_list], file)
+    std_same = np.std(d_ref)
+    max_std = 0
+    xlabels = ['res$_{h_S}$ [m]', 'res$_{U_{10}}$ [m/s]']
+    fig, axes = plt.subplots(1,2)
+    for i, (ax, results, reslist) in enumerate(zip(axes, [h_list_d, u_list_d], [h_res_list,u_res_list])):
+        stds = [np.std(data) for data in results]
+        ax.plot(reslist, stds, color='blue', label='%s randomly picked values'%(runs))
+        ax.hlines(std_same, reslist[0], reslist[-1], ls='--', label='%s identical repetitions'%(runs))
+        ax.set_xlim(reslist[0], reslist[-1])
+        if np.max(stds)> max_std:
+            max_std = np.max(stds)
+        ax.set_xscale('log')
+        ax.set_ylim(0, max_std)
+        ax.set_xlabel(xlabels[i])
+        ax.set_ylabel('$STD_D$ [-]')
+        ax.ticklabel_format(axis='y',style='sci', scilimits=(0,0))
+        ax.legend(loc='upper left')
+    plt.close(fig)
+    return fig
