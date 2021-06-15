@@ -4,16 +4,19 @@ import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-import cloudpickle
+import dill
 import multiprocess
 from src.pressure import pressure
 from src.stress import stress_time
 import scipy.stats as ss
+from src.utilities.nearest import nearest
 root_dir = os.path.join(os.getcwd(), '..')
 sys.path.append(root_dir)
 TUred = "#c3312f"
 TUblue = "#00A6D6"
-TUgreen = "#00a390"
+# Load system properties
+with open('../data/06_transferfunctions/current_case.pkl', 'rb') as file:
+    GATE = dill.load(file)
 
 def uls_worker(args):
     """Helper function for stress_simulations"""
@@ -25,7 +28,7 @@ def uls_worker(args):
         max_s_list.append(np.max(response_t))
     return max_s_list
 
-def ULS_simulations(h_sea, u_wind, coords, runs, version=''):
+def uls_simulations(h_sea, u_wind, coords, runs, version='1', cores=4):
     """Runs a lot of stress simulations for the same input at a given coordinate,
     and stores the peak stress that occurs during each simulation.
 
@@ -40,8 +43,19 @@ def ULS_simulations(h_sea, u_wind, coords, runs, version=''):
     max_s_list: List of maximum gate stresses for each simulation (Pa)
 
     """
-    print('Running ULS analysis for case: '+str(version))
-    cores = 4 #multiprocess.cpu_count()
+    coords=nearest(*coords)
+    uls_directory = '../data/08_analysis/%s/uls_stress'%GATE.case
+    uls_file = uls_directory+'/%s_stresses_v%s.pkl'%(runs, version)
+    if not os.path.exists(uls_directory):
+        os.mkdir(uls_directory)
+        print("Created new directory at: %s"%uls_directory)
+    else:
+        if not os.path.exists(uls_file):
+            print('Running new ULS analysis for case: '+str(version))
+        else:
+            print('Using old ULS analysis for version %s of case %s.'%(version, GATE.case))
+            with open(uls_file,'rb') as file:
+                return dill.load(file)
     print('Using '+str(cores)+' cores')
     chunk = int(runs/cores)
     args = cores*[[h_sea, u_wind, coords, chunk]]
@@ -51,17 +65,26 @@ def ULS_simulations(h_sea, u_wind, coords, runs, version=''):
     pool.join()
 
     max_s_list = np.concatenate(max_s_list)
-    path = '../data/08_analysis/ULS_stress'
-    with open(path+'/maxstresses_'+str(runs)+'_v'+str(version)+'.cp.pkl', 'wb') as file:
-        cloudpickle.dump(max_s_list, file)
+    with open(uls_file, 'wb') as file:
+        dill.dump(max_s_list, file)
     print('Successfully performed '+str(runs)+' simulations.')
     return max_s_list
 
-def uls_plot(runs, f_yield, version, fit=False):
-    """Plots the stress simulations and shows in how many cases the structure failed"""
-    with open('../data/08_analysis/ULS_stress/maxstresses_'+str(runs)+'_v'\
-              +str(version)+'.cp.pkl','rb') as file:
-        max_stresses = cloudpickle.load(file)/10**6 #MPa
+def uls_plot(runs, f_yield, version):
+    """Plots the stress simulations and shows in how many cases the structure failed.
+    
+    Parameters:
+    runs: amount of runs for which simulation was done
+    f_yield: yield stress of material used
+    version: simulation version
+
+    Returns:
+    fig: figure of ULS-analysis
+    """
+    uls_directory = '../data/08_analysis/%s/uls_stress'%GATE.case
+    uls_file = uls_directory+'/%s_stresses_v%s.pkl'%(runs, version)
+    with open(uls_file,'rb') as file:
+        max_stresses = dill.load(file)/10**6 #MPa
     fig, (ax1,ax2) = plt.subplots(1,2,figsize=[15,5])
     fails = np.where(max_stresses>f_yield)
     successes = np.where(max_stresses<=f_yield)
@@ -90,11 +113,11 @@ def uls_plot(runs, f_yield, version, fit=False):
     ax2.set_xlabel('Maximum stress [MPa]')
     ax2.set_ylabel('Occurences [-]')
 
-    dist = ss.gamma.fit(max_stresses)
-    fitted = ss.gamma.pdf(bins, *dist)
+    dist = ss.lognorm.fit(max_stresses)
+    fitted = ss.lognorm.pdf(bins, *dist)
     ax2.plot(bins, fitted, color=TUred, label='Lognormal fit', alpha=0.8)
     ax2.set_xlim(min(max_stresses), np.max([f_yield+10, *max_stresses]))
-    print('Estimated failure rate {:.2E}'.format(1-ss.gamma.cdf(f_yield, *dist)))
+    print('Estimated failure rate {:.4E}'.format(1-ss.lognorm.cdf(f_yield, *dist)))
     ax2.legend(loc='upper right')
     plt.close(fig)
     return fig

@@ -1,5 +1,7 @@
 """Functions to import and pre-process the raw data to obtain a set of load case
 that characterize the environmental conditions during the lifetime of the structure."""
+import os
+import multiprocess
 import numpy as np
 import pandas as pd
 import dill
@@ -8,6 +10,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from src.configuration import h0, cr
 from src.spec import spectrum_generator
+from src.utilities.nearest import nearest
+from src.pressure import pressure
+from src.stress import stress_time
+from src.fatigue import fatigue
 
 def import_raw_data(windfile, waterfile, bins=30):
     """Imports the raw historical data, formats it into a DataFrame,
@@ -96,6 +102,7 @@ def create_pdf(data, rise=1, n_h=1000, n_u=1e4, h_range=[0,10]):
     hcc_pdf = scipy.signal.fftconvolve(delta*h_pdf, delta*cc_pdf.pdf(x_h_p), 'same')/delta
     print("Integral of convoluted pdf: "+str(round(np.trapz(hcc_pdf, x_h_p), 3)))
     x_h = np.linspace(*h_range, int(n_h))
+    print('Interpolating...')
     hcc_pdf = abs(scipy.interpolate.interp1d(x_h_p+h0, hcc_pdf, kind='cubic')(x_h))
     h_pdf = scipy.interpolate.interp1d(x_h_p+h0, h_pdf)(x_h)
     fig = plt.figure()
@@ -114,6 +121,8 @@ def create_pdf(data, rise=1, n_h=1000, n_u=1e4, h_range=[0,10]):
     u10000 = scipy.stats.lognorm(*u_dist).ppf(1-prob)
     x_u = np.linspace(0, u10000, int(n_u))
     u_pdf = scipy.stats.lognorm.pdf(x_u, *u_dist)
+    with open('../data/03_loadevents/u_dist.pkl', 'wb') as file:
+        dill.dump(u_dist, file)
     with open('../data/03_loadevents/pdfs.cp.pkl', 'wb') as file:
         dill.dump([x_h, hcc_pdf, x_u, u_pdf], file)
     return fig, [x_h, hcc_pdf, x_u, u_pdf]
@@ -272,12 +281,20 @@ def discrete_variance(h_sea, h_res, u_wind, u_res, runs, coords):
         u_slice = np.logical_and((x_u >= min(u_range)), x_u <= max(u_range))
         u_values = np.random.choice(a=x_u[u_slice], p=u_pdf[u_slice]/np.sum(u_pdf[u_slice]), size=runs)
     
-    d_list = np.zeros(runs)
-    for i, (rand_u, rand_h) in enumerate(zip(u_values, h_values)):
+    args = [[rand_u, rand_h] for (rand_u, rand_h) in zip(u_values, h_values)]
+    def sensitivity_worker(args):
+        d_list = []
+        rand_u, rand_h = args
         f, pqs_f, p_imp_t, _, _ = pressure(rand_u, rand_h)
         _, response_t = stress_time(f, pqs_f, p_imp_t, coords)
-        d_list[i] = fatigue(response_t, cat=100)
-    return d_list
+        d_list.append(fatigue(response_t, cat=100))
+        return d_list
+    cores = int(multiprocess.cpu_count()/2)
+    pool = multiprocess.Pool(cores)
+    d_list = pool.map(sensitivity_worker, args)
+    pool.close()
+    pool.join()
+    return np.squeeze(np.array(d_list))
 
 def sensitivity_discretisation(h_sea, h_res_list, u_wind, u_res_list, runs=100, coords=(5,1,7.5), overwrite=False):
     """Compares the variance of load cases for different discretisation resolutions to optimize the accuracy and efficiency.
@@ -304,8 +321,8 @@ def sensitivity_discretisation(h_sea, h_res_list, u_wind, u_res_list, runs=100, 
         new_u_res = u_res_list
         h_res_list_old = []
         u_res_list_old = []
-        h_list_d_old = np.zeros(0)
-        u_list_d_old = np.zeros(0)
+        h_list_d_old = np.zeros([0, runs])
+        u_list_d_old = np.zeros([0, runs])
         print('Starting new calculation...')
         d_ref = discrete_variance(h_sea, 0, u_wind, 0, runs, coords)
     h_list_d = np.zeros([len(new_h_res), runs])
@@ -316,21 +333,23 @@ def sensitivity_discretisation(h_sea, h_res_list, u_wind, u_res_list, runs=100, 
     for i, u_res in enumerate(new_u_res):
         u_list_d[i] = discrete_variance(h_sea, 0, u_wind, u_res, runs, coords)
     print('Finished wind velocity sensitivity.')
-    h_list_d = np.concatenate((h_list_d, h_list_d_old), axis=0)
-    u_list_d = np.concatenate((u_list_d, u_list_d_old), axis=0)
     h_res_list = new_h_res+h_res_list_old
     u_res_list = new_u_res+u_res_list_old
+    h_list_d = np.array([h_d for (h_res, h_d) in sorted(zip(h_res_list, np.concatenate((h_list_d, h_list_d_old), axis=0)))])
+    h_res_list = np.array(sorted(h_res_list))
+    u_list_d = np.array([u_d for (u_res, u_d) in sorted(zip(u_res_list, np.concatenate((u_list_d, u_list_d_old), axis=0)))])
+    u_res_list = np.array(sorted(u_res_list))
     with open(filename, 'wb') as file:  
         dill.dump([d_ref, h_list_d, u_list_d, h_res_list, u_res_list], file)
     std_same = np.std(d_ref)
     max_std = 0
     xlabels = ['res$_{h_S}$ [m]', 'res$_{U_{10}}$ [m/s]']
     fig, axes = plt.subplots(1,2)
-    for i, (ax, results, reslist) in enumerate(zip(axes, [h_list_d, u_list_d], [h_res_list,u_res_list])):
+    for i, (ax, results, reslist) in enumerate(zip(axes, [h_list_d, u_list_d], [h_res_list, u_res_list])):
         stds = [np.std(data) for data in results]
         ax.plot(reslist, stds, color='blue', label='%s randomly picked values'%(runs))
-        ax.hlines(std_same, reslist[0], reslist[-1], ls='--', label='%s identical repetitions'%(runs))
-        ax.set_xlim(reslist[0], reslist[-1])
+        ax.hlines(std_same, min(reslist), max(reslist), ls='--', label='%s identical repetitions'%(runs))
+        ax.set_xlim(min(reslist), max(reslist))
         if np.max(stds)> max_std:
             max_std = np.max(stds)
         ax.set_xscale('log')

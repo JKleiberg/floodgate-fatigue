@@ -4,7 +4,7 @@
 import os
 import numpy as np
 import pandas as pd
-import cloudpickle
+import dill
 import multiprocess
 from src.pressure import pressure
 from src.stress  import stress_time
@@ -16,6 +16,9 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 TUred = "#c3312f"
 TUblue = "#00A6D6"
 TUgreen = "#00a390"
+# Load system properties
+with open('../data/06_transferfunctions/current_case.pkl', 'rb') as file:
+    GATE = dill.load(file)
 
 def fatigueworker(args):
     """Worker function for generate_fatigue.
@@ -51,15 +54,15 @@ def generate_fatigue(coords, version, N=1e6):
 
     """
     print("Analyzing coordinate "+str(coords))
-    path = '../data/07_fatigue/%s.cp.pkl'%version
     # Load case list
     with open('../data/03_loadevents/filtered_cases.cp.pkl', 'rb') as f:
-        N_cases = cloudpickle.load(f).head(int(N))
+        N_cases = dill.load(f).head(int(N))
     # Fetch already calculated cases (if applicable)
+    path = '../data/07_fatigue/%s/%s.pkl'%(GATE.case, version)
     if os.path.exists(path):
         print ("Using existing runs from %s" % path)
         with open(path, 'rb') as old_cases:
-            oldcases = cloudpickle.load(old_cases)
+            oldcases = dill.load(old_cases)
     else:
         oldcases = pd.DataFrame(columns = ['p','mean_u','mean_h'])
         print ("Created new file at %s" % path)
@@ -86,8 +89,8 @@ def generate_fatigue(coords, version, N=1e6):
     new_damage = pd.DataFrame.from_records(np.concatenate(D_list))
     all_damage = pd.concat([oldcases,new_damage])
     with open(path, 'wb') as file:
-        cloudpickle.dump(all_damage, file)
-    print('Successfully performed '+str(len(new_damage))+' fatigue analyses.')
+        dill.dump(all_damage, file)
+    print('Successfully performed %s fatigue analyses.'%len(new_damage))
     return all_damage
 
 def simulations(runs, version, average_only=False, std=0.1):
@@ -109,8 +112,11 @@ def simulations(runs, version, average_only=False, std=0.1):
 
     """
     rng = np.random.default_rng()
-    with open('../data/07_fatigue/%s.cp.pkl' % version, 'rb') as f:
-        cases_calc = cloudpickle.load(f).sort_values(['D'])
+    case_directory = '../data/07_fatigue/%s'%GATE.case
+    if not os.path.exists(case_directory):
+        os.mkdir(case_directory)
+    with open('%s/%s.pkl' %(case_directory, version), 'rb') as f:
+        cases_calc = dill.load(f).sort_values(['D'])
     cases_calc['damage'] = 100*cases_calc['D']*cases_calc['p'].to_list() # in %
     # Add 'empty' cases that were filtered out earlier
     cases = cases_calc.append({'mean_u':0,'mean_h':6,'D':0,'p':1-sum(cases_calc['p']), 'damage':0},
@@ -122,11 +128,11 @@ def simulations(runs, version, average_only=False, std=0.1):
     if average_only:
         return D_expected
     
-    path = '../data/07_fatigue/'+str(runs)+'_lifetimes_v'+str(version)+'.cp.pkl'
-    if os.path.exists(path):
-        print("Using old simulations from %s" % path)
-        with open(path, 'rb') as file:
-            fig, D_expected, totals, [maxes,means,mins] = cloudpickle.load(file)
+    runs_path = '%s/%s_lifetimes_v%s.pkl'%(case_directory, runs, version)
+    if os.path.exists(runs_path):
+        print("Using old simulations from %s"%runs_path)
+        with open(runs_path, 'rb') as file:
+            fig, D_expected, totals, [maxes,means,mins] = dill.load(file)
     else:
         print('Running %s Monte Carlo simulations...'%runs)
         # Randomly generate 100 years of hourly simulations, 'n' at a time
@@ -159,7 +165,7 @@ def simulations(runs, version, average_only=False, std=0.1):
     ax1.legend(loc='lower right')
 
     with open('../data/03_loadevents/currentbins.cp.pkl', 'rb') as f:
-        x_u, x_h, u_bins, h_bins = cloudpickle.load(f)
+        x_u, x_h, u_bins, h_bins = dill.load(f)
     hist = ax2.hist2d(cases_calc['mean_h'], cases_calc['mean_u'], bins=[h_bins,u_bins],
                       range=[(min(x_h),max(x_h)),(min(x_u),max(x_u))],
                       weights=cases_calc['damage']*100, cmap='Blues', cmin=1e-6)
@@ -174,8 +180,8 @@ def simulations(runs, version, average_only=False, std=0.1):
     ax2.set_yticks(np.linspace(min(x_u), max(x_u), u_bins+1), minor=True)
     ax2.set_xlim(5,9)
     ax2.set_ylim(min(cases['mean_u']),50)
-    with open('../data/07_fatigue/'+str(runs)+'_lifetimes_v'+str(version)+'.cp.pkl', 'wb') as f:
-        cloudpickle.dump([fig, D_expected, totals, [maxes,means,mins]], f)
+    with open(runs_path, 'wb') as f:
+        dill.dump([fig, D_expected, totals, [maxes,means,mins]], f)
     plt.close(fig)
     return fig, D_expected, totals, [maxes,means,mins]
 
@@ -209,9 +215,8 @@ def compare_simulations(runs, cases, labels, colors=[TUblue, TUred, TUgreen, '#f
         ax1.plot(t, mins, color=color, ls=':', alpha=0.7)
         ax1.fill_between(t, mins, maxes,alpha=0.1, color=color)
         total_list.append(totals)
-    with open('../data/07_fatigue/comparison_'+str(runs)+"_lifetimes_"\
-              +str(labels)+'.cp.pkl', 'wb') as f:
-        cloudpickle.dump(total_list, f)
+    with open('../data/07_fatigue/%s/comparison_%s_lifetimes_%s.pkl'%(GATE.case, runs, labels), 'wb') as f:
+        dill.dump(total_list, f)
     ax1.set_xlabel('Time [years]')
     ax1.set_ylabel('Fatigue damage [%]')
     ax1.legend(loc='lower right')

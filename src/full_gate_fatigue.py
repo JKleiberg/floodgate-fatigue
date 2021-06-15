@@ -31,7 +31,7 @@ try:
 except OSError:
     print("An exception occurred: no FRF found at "+directory)
 
-def fatigue_gate(u_wind, h_sea, cat, ID=''):
+def fatigue_gate(u_wind, h_sea, cat, ID='', overwrite=False, cores=4):
     """Calculates the fatigue and contribution of each mode at every point in the gate
 
     Parameters:
@@ -46,58 +46,79 @@ def fatigue_gate(u_wind, h_sea, cat, ID=''):
                to the total response at a coordinate (%)
 
     """
+    gate_directory = '../data/08_analysis/%s/full_gate_fatigue'%GATE.case
+    file_directory = gate_directory+'/gatefatigue_(%s,%s_%s).cp.pkl'%(u_wind, h_sea, ID)
+    if not os.path.exists('../data/08_analysis/%s'%GATE.case):
+        os.mkdir('../data/08_analysis/%s'%GATE.case)
+        if not os.path.exists(gate_directory):
+            os.mkdir(gate_directory)
+            print("Created new directory at: %s"%gate_directory)
+    if os.path.exists(file_directory) and (overwrite==False):
+        with open(file_directory, 'rb') as file:
+            print('Loading old fatigue calculations...')
+            return [GATE, *dill.load(file)]
+    else:
+        print('Performing new fatigue calculations...')
+        # Prepare Wood & Peregrine dimensionless impact shape
+        Pz_impact_U1 = woodandperegrine(GATE)
 
-    # Prepare Wood & Peregrine dimensionless impact shape
-    Pz_impact_U1 = woodandperegrine(GATE)
+        freqs, pqs_f, impact_force_t, Hs, Tp = pressure(u_wind, h_sea)
+        length_scale = len(pqs_f[0])
+        pqs_sections = qs_discretize(pqs_f)
+        func = interp1d(GATE.f_tf, GATE.FRF, axis=3)
+        FRF_qs = func(freqs)
+        p_imp_f = pyfftw.interfaces.numpy_fft.rfft(imp_discretize(impact_force_t),axis=1)
 
-    freqs, pqs_f, impact_force_t, Hs, Tp = pressure(u_wind, h_sea)
-    length_scale = len(pqs_f[0])
-    pqs_sections = qs_discretize(pqs_f)
-    func = interp1d(GATE.f_tf, GATE.FRF, axis=3)
-    FRF_qs = func(freqs)
-    p_imp_f = pyfftw.interfaces.numpy_fft.rfft(imp_discretize(impact_force_t),axis=1)
+        def divide_chunks(items, chunksize):
+            for i in range(0, len(items), chunksize):
+                yield items[i:i + chunksize]
+        #Tradeoff between memory and processing time
+        chunksize = 10
+        col_chunks = list(divide_chunks(GATE.stress_neg, chunksize))
 
-    def divide_chunks(items, chunksize):
-        for i in range(0, len(items), chunksize):
-            yield items[i:i + chunksize]
-    #Tradeoff between memory and processing time
-    chunksize = 15
-    cores = 4
-    col_chunks = list(divide_chunks(GATE.stress_neg, chunksize))
+        def gatefatigue_worker(chunk):
+            response_qs = np.zeros([len(chunk), GATE.n_modes, len(freqs)], dtype=np.complex)
+            np.einsum('jl,ijkl,pk->pkl', pqs_sections, FRF_qs, chunk,
+                      out = response_qs, dtype=np.complex)
+            int_qs = [np.trapz(abs(point), x=freqs, axis=1)*length_scale for point in response_qs]
+            response_qs_t = length_scale*pyfftw.interfaces.numpy_fft.irfft(\
+                            response_qs.sum(axis=1), axis=1)
+            t_qs = np.linspace(0, 3600*N_HOURS, response_qs_t.shape[1])
+            # Interpolate qs
+            func_qs = interp1d(t_qs, response_qs_t, axis=1)
+            resp_qs_intpl = func_qs(t)
 
-    def gatefatigue_worker(chunk):
-        response_qs = np.zeros([len(chunk), GATE.n_modes, len(freqs)], dtype=np.complex)
-        np.einsum('jl,ijkl,pk->pkl', pqs_sections, FRF_qs, chunk,
-                  out = response_qs, dtype=np.complex)
-        int_qs = [np.trapz(abs(point), x=freqs, axis=1)*length_scale for point in response_qs]
-        response_qs_t = length_scale*pyfftw.interfaces.numpy_fft.irfft(\
-                        response_qs.sum(axis=1), axis=1)
-        t_qs = np.linspace(0, 3600*N_HOURS, response_qs_t.shape[1])
-        # Interpolate qs
-        func_qs = interp1d(t_qs, response_qs_t, axis=1)
-        resp_qs_intpl = func_qs(t)
+            # Compute response for modes
+            response_imp = np.zeros([len(chunk), GATE.n_modes, len(GATE.f_intpl)], dtype=np.complex)
+            np.einsum('jl,ijkl,pk->pkl', p_imp_f, frf_intpl, chunk,
+                      out=response_imp, dtype=np.complex)
+            int_imp = [np.trapz(abs(point), x=GATE.f_intpl, axis=1) for point in response_imp]
+            response_imp_t = pyfftw.interfaces.numpy_fft.irfft(response_imp.sum(axis=1), axis=1)
+            response_imp_t = np.insert(response_imp_t,response_imp_t.shape[1],
+                                       response_imp_t[:,-1], axis=1)
+            response_tot_t = resp_qs_intpl + response_imp_t
+            int_tot = np.array([(x + y) for x, y in zip(int_qs, int_imp)])
+            modeshare = [i/sum(i) for i in int_tot]
+            damage = [fatigue(res, cat) for res in response_tot_t]
+            return damage, modeshare
 
-        # Compute response for modes
-        response_imp = np.zeros([len(chunk), GATE.n_modes, len(GATE.f_intpl)], dtype=np.complex)
-        np.einsum('jl,ijkl,pk->pkl', p_imp_f, frf_intpl, chunk,
-                  out=response_imp, dtype=np.complex)
-        int_imp = [np.trapz(abs(point), x=GATE.f_intpl, axis=1) for point in response_imp]
-        response_imp_t = pyfftw.interfaces.numpy_fft.irfft(response_imp.sum(axis=1), axis=1)
-        response_imp_t = np.insert(response_imp_t,response_imp_t.shape[1],
-                                   response_imp_t[:,-1], axis=1)
-        response_tot_t = resp_qs_intpl + response_imp_t
-        int_tot = np.array([(x + y) for x, y in zip(int_qs, int_imp)])
-        modeshare = [i/sum(i) for i in int_tot]
-        damage = [fatigue(res, cat) for res in response_tot_t]
-        return damage, modeshare
-
-    pool = multiprocess.Pool(cores)
-    damage, modeshare = zip(*pool.map(gatefatigue_worker, col_chunks))
-    pool.close()
-    with open('../data/08_analysis/full_gate_fatigue/gatefatigue_('\
-              +str(u_wind)+','+str(h_sea)+'_'+str(ID)+').cp.pkl', 'wb') as file:
-        dill.dump([np.concatenate(damage),np.concatenate(modeshare)],file)
-    return np.concatenate(damage), np.concatenate(modeshare)
+        pool = multiprocess.Pool(cores)
+        damage, modeshare = zip(*pool.map(gatefatigue_worker, col_chunks))
+        pool.close()
+        pool.join()
+        damage = np.array(damage)
+        modeshare = np.array(modeshare)
+        print(damage.shape, modeshare.shape)
+        damage = damage.reshape(damage.shape[0]*damage.shape[1])
+        modeshare = np.array(modeshare).reshape((modeshare.shape[0]*modeshare.shape[1]), modeshare.shape[2])
+        GATE.max_coords = GATE.coords[np.argmax(damage)]
+        frf_directory = '../data/06_transferfunctions/'+str(GATE.case)
+        configfile = '/'+str(GATE.case)+'_properties.cp.pkl'
+        with open(frf_directory+configfile, 'wb') as file:
+            dill.dump(GATE, file)
+        with open(file_directory, 'wb') as file:
+            dill.dump([damage,modeshare],file)
+        return GATE, damage, modeshare
 
 def plot_fatigue_gate(cases, titles, u_wind, h_sea):
     """Plots the fatigue experienced by every point on the gate. Allows for multiple inputs for comparison.
@@ -112,7 +133,14 @@ def plot_fatigue_gate(cases, titles, u_wind, h_sea):
     fig = plt.figure(figsize=[15,12])
     plt.tight_layout()
     for i, ID in enumerate(cases):
-        with open('../data/08_analysis/full_gate_fatigue/gatefatigue_('+str(u_wind)+','+str(h_sea)+'_'+str(ID)+').cp.pkl', 'rb') as f:
+        # Load system properties
+        frf_directory = '../data/06_transferfunctions/%s'%ID
+        configfile = '/%s_properties.cp.pkl'%ID
+        with open(frf_directory+configfile, 'rb') as file:
+            GATE = dill.load(file)
+        gate_directory = '../data/08_analysis/%s/full_gate_fatigue'%ID
+        file_directory = gate_directory+'/gatefatigue_(%s,%s_%s).cp.pkl'%(u_wind, h_sea, ID)
+        with open(file_directory, 'rb') as f:
             damage_gate, modeshare = dill.load(f)
         ax = fig.add_subplot(1, len(cases), i+1, projection='3d')
         Zmin = min(damage_gate)
@@ -146,8 +174,7 @@ def plot_fatigue_gate(cases, titles, u_wind, h_sea):
         ax.zaxis.pane.set_edgecolor('w')
         ax.view_init(30, 40)
         ax.set_title(titles[i], fontsize=15)
-        print('Maximum fatigue in %s: %s'%(ID, round(np.max(damage_gate),5)))
-#         fig.subplots_adjust(wspace=0.1)
+        print("Maximum fatigue in %s is %s and occurs at: %s"%(GATE.case, round(np.max(damage_gate),5), GATE.max_coords))
         cbar = fig.colorbar(plt.cm.ScalarMappable(cmap=cmap, norm=norm), ax=ax, fraction=0.03,
                      ticks=[10**-x for x in range(10)], format='%.0e')
         cbar.ax.set_title("D [-]")
@@ -168,7 +195,7 @@ def plot_modeshare_gate(modes, modeshare):
                       for point in modeshare])
 
     fig = plt.figure(figsize=[8,8])
-    ax = Axes3D(fig)
+    ax = fig.add_subplot(111, projection='3d')
     Zmin = 0
     Zmax = 100
     cmap = plt.cm.Reds
@@ -255,7 +282,7 @@ def modalfatiguecontribution(wind, hsea, coords, cat=100, save=False):
     total = fatigue(np.sum(res, axis=0), 100)
     shares = 1-D_list/total
     if save:
-        with open('../data/07_fatigue/shares_'+str(GATE.case)+'_%smps.cp.pkl'%wind, 'wb') as f:
+        with open('../data/07_fatigue/%s/shares_%smps.cp.pkl'%(GATE.case, wind), 'wb') as f:
             dill.dump(shares, f)
     fig = plt.figure()
     modes = np.arange(16)+1

@@ -1,6 +1,5 @@
 '''Defines constants and settings used throughout model'''
 import numpy as np
-import cloudpickle
 import os
 
 ## Physical constants
@@ -49,23 +48,23 @@ t = np.arange(0,N_HOURS*3600+1*dt,dt)
 # z_coords = np.linspace(0, H_GATE, int(H_GATE/dz+1))
 # t = np.arange(0,N_HOURS*3600+1*dt,dt)
 
-## Gate properties
-Gate = None
-filepath = '../data/06_transferfunctions/currentcase.cp.pkl'
-class _Config:
-    def __init__(self):
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as file:
-                properties = cloudpickle.load(file)
-                for key,val in properties.items():
-                    setattr(self,key,val)
-        else:
-            print('No system properties found. Run initialize() to create new file.')
+# ## Gate properties
+# Gate = None
+# filepath = '../data/06_transferfunctions/currentcase.cp.pkl'
+# class _Config:
+#     def __init__(self):
+#         if os.path.isfile(filepath):
+#             with open(filepath, 'rb') as file:
+#                 properties = cloudpickle.load(file)
+#                 for key,val in properties.items():
+#                     setattr(self,key,val)
+#         else:
+#             print('No system properties found. Run initialize() to create new file.')
          
-    def __getattr__(self, name):
-        try:
-            return self.config[name]
-        except KeyError:
-            return print('fail')
+#     def __getattr__(self, name):
+#         try:
+#             return self.config[name]
+#         except KeyError:
+#             return print('fail')
 
-Gate = _Config()
+# Gate = _Config()

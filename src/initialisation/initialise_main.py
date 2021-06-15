@@ -16,7 +16,7 @@ def initialisation(GATE, overwrite=False):
     else:
         # If folder exists, check whether SCIA model has to be run
         with open(scia_directory+'/GATE.pkl', 'rb') as file:
-                    GATE_stored = dill.load(file)
+            GATE_stored = dill.load(file)
         if hash(tuple(GATE.GEOMETRY.values())) == hash(tuple(GATE_stored.GEOMETRY.values())):
             if overwrite:
                 print('Overwriting existing modes...')
@@ -74,4 +74,7 @@ def initialisation(GATE, overwrite=False):
             print('Loaded existing frequency response function(s) and gate properties for case %s.'%GATE.case)
     with open('../data/06_transferfunctions/current_case.pkl', 'wb') as file:
         dill.dump(GATE, file)
+    analysis_folder = '../data/08_analysis/%s'%GATE.case
+    if not os.path.exists(analysis_folder):
+        os.mkdir(analysis_folder)
     return GATE

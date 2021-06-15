@@ -3,7 +3,6 @@ import os
 import sys
 import re
 import subprocess
-import cloudpickle
 import numpy as np
 import pandas as pd
 import xml.dom.minidom as md
@@ -146,8 +145,5 @@ def read_scia_output(GATE):
     GATE.faces = faces
     GATE.coords = coords
 
-#     res = [freqs, Wxz, col_disp, stress_pos, stress_neg, shear, faces, coords]
-#     with open('../data/05_SCIA/'+str(GATE.case)+'/dry_modes.cp.pkl', 'wb') as file:
-#             cloudpickle.dump(res, file)
-    print('Successfully read mode shapes from XML. File created at data/05_SCIA/%s'%GATE.case+r'/dry_modes.cp.pkl.')
+    print('Successfully read mode shapes from XML.')
     return GATE
